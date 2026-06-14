@@ -1,0 +1,17 @@
+{
+  "name": "Ember - 喫煙記録",
+  "short_name": "Ember",
+  "description": "責めずに、ただ把握する。吸った一本を記録して、本数・きっかけ・満足度・在庫・コストをふりかえる喫煙記録アプリ。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f9f9f9",
+  "theme_color": "#1a1a1a",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Ember - 喫煙記録</title>
+<meta name="description" content="責めずに、ただ把握する。吸った一本をワンタップで記録。本数・きっかけ・満足度・コスト、そして在庫（あと何本）まで分かる喫煙記録アプリ。記録は端末の中だけ。" />
+<meta name="theme-color" content="#1a1a1a" />
+<link rel="manifest" href="./manifest.json" />
+<link rel="apple-touch-icon" href="./icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Ember" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f9f9f9; --surface: #ffffff; --border: #e8e8e8; --border-light: #f2f2f2;
+    --text: #1a1a1a; --text-2: #555; --text-3: #888; --text-4: #bbb; --text-5: #ddd;
+    --accent: #1a1a1a; --accent-strong: #1a1a1a; --accent-soft: #f0f0f0;
+    --ember: #d8743f;
+    --shadow: 0 1px 2px rgba(0,0,0,0.03), 0 3px 10px rgba(0,0,0,0.04);
+    --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html, body { background: var(--bg); color: var(--text); font-family: -apple-system, "Helvetica Neue", "Noto Sans JP", sans-serif; -webkit-font-smoothing: antialiased; line-height: 1.7; }
+  body { min-height: 100vh; }
+  button { font-family: inherit; }
+  input, textarea, select { font-family: inherit; }
+
+  .nav { position: sticky; top: 0; z-index: 20; background: rgba(249,249,249,0.9); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); border-bottom: 1px solid var(--border-light); padding-top: var(--safe-top); }
+  .nav-bar { display: flex; align-items: center; justify-content: center; height: 50px; }
+  .nav-title { font-size: 17px; font-weight: 800; letter-spacing: 0.02em; }
+  .nav-tabs { display: flex; max-width: 560px; margin: 0 auto; }
+  .nav-tab { flex: 1; background: none; border: none; padding: 10px 4px 11px; font-size: 12.5px; font-weight: 600; color: var(--text-3); cursor: pointer; border-bottom: 2px solid transparent; }
+  .nav-tab.active { color: var(--text); border-bottom-color: var(--accent-strong); font-weight: 800; }
+
+  .main { max-width: 560px; margin: 0 auto; padding: 18px 16px calc(40px + var(--safe-bottom)); }
+  .section-title { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
+  .muted { color: var(--text-3); font-size: 13px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .btn-primary { background: var(--accent-strong); color: #fff; border: none; border-radius: 12px; padding: 13px 16px; font-size: 14px; font-weight: 700; cursor: pointer; width: 100%; transition: opacity 0.15s, transform 0.1s; }
+  .btn-primary:active { transform: translateY(1px); opacity: 0.92; }
+  .btn-primary:disabled { opacity: 0.4; cursor: default; }
+  .btn-secondary { background: var(--accent-soft); color: var(--accent-strong); border: none; border-radius: 12px; padding: 12px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-secondary:active { background: var(--border); }
+  .btn-ghost { background: none; border: 1.5px solid var(--border); border-radius: 999px; padding: 7px 14px; font-size: 12px; color: var(--text-3); cursor: pointer; }
+  .btn-danger { background: none; border: 1.5px solid #e3b7b0; color: #b5503f; border-radius: 12px; padding: 11px 16px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
+  .row { display: flex; gap: 10px; } .row > * { flex: 1; }
+
+  /* Big log button */
+  .log-big { width: 100%; border: none; border-radius: 20px; padding: 26px 18px; cursor: pointer; color: #fff;
+    background: radial-gradient(120% 140% at 78% 30%, #3a2a22 0%, #1f1c1b 60%); box-shadow: 0 10px 30px rgba(0,0,0,0.18); transition: transform 0.1s; position: relative; overflow: hidden; }
+  .log-big:active { transform: scale(0.985); }
+  .log-emoji { font-size: 34px; }
+  .log-big-title { font-size: 17px; font-weight: 800; margin-top: 6px; }
+  .log-big-sub { font-size: 12.5px; color: rgba(255,255,255,0.7); margin-top: 3px; }
+  .log-ember { position: absolute; right: 24px; top: 24px; width: 12px; height: 12px; border-radius: 50%; background: var(--ember); box-shadow: 0 0 16px 4px rgba(216,116,63,0.7); }
+
+  .since { text-align: center; margin: 14px 0 16px; }
+  .since-num { font-size: 15px; font-weight: 700; }
+  .since-lab { font-size: 12px; color: var(--text-3); }
+
+  .summary { display: flex; gap: 10px; margin-bottom: 14px; }
+  .sum-box { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 13px 14px; box-shadow: var(--shadow); }
+  .sum-label { font-size: 11.5px; color: var(--text-3); }
+  .sum-val { font-size: 22px; font-weight: 800; margin-top: 2px; letter-spacing: -0.01em; }
+  .sum-val small { font-size: 12px; font-weight: 600; color: var(--text-3); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1.5px solid var(--border); background: var(--surface); border-radius: 999px; padding: 8px 14px; font-size: 13px; color: var(--text-2); cursor: pointer; }
+  .chip.active { border-color: var(--accent-strong); background: #fff; color: var(--text); font-weight: 700; }
+
+  /* bars */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .bar-name { width: 84px; font-size: 12.5px; font-weight: 600; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 1; height: 10px; background: var(--border-light); border-radius: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 6px; background: var(--accent-strong); min-width: 2px; transition: width 0.4s; }
+  .bar-val { width: 46px; text-align: right; font-size: 11.5px; color: var(--text-3); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+  /* daily chart */
+  .chart { display: flex; align-items: flex-end; gap: 4px; height: 96px; margin-top: 6px; }
+  .chart-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; height: 100%; }
+  .chart-bar { width: 100%; max-width: 16px; background: var(--accent-strong); border-radius: 4px 4px 0 0; min-height: 2px; }
+  .chart-bar.today { background: var(--ember); }
+  .chart-lab { font-size: 8.5px; color: var(--text-4); white-space: nowrap; }
+  .chart-num { font-size: 9px; color: var(--text-3); font-weight: 700; }
+
+  /* history */
+  .day-head { font-size: 12px; font-weight: 700; color: var(--text-3); margin: 18px 2px 8px; display: flex; justify-content: space-between; }
+  .cig-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; margin-bottom: 8px; box-shadow: var(--shadow); cursor: pointer; }
+  .cig-time { font-size: 14px; font-weight: 800; width: 52px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .cig-body { flex: 1; min-width: 0; }
+  .cig-trig { font-size: 13px; font-weight: 600; }
+  .cig-memo { font-size: 12.5px; color: var(--text-3); margin-top: 1px; word-break: break-word; }
+  .cig-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ember); flex-shrink: 0; }
+
+  .field-label { font-size: 12.5px; font-weight: 700; color: var(--text-2); margin-bottom: 8px; }
+  input[type=text], input[type=number], input[type=datetime-local], textarea { width: 100%; border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; font-size: 14px; color: var(--text); background: var(--surface); }
+  textarea { resize: vertical; min-height: 60px; line-height: 1.6; }
+  input:focus, textarea:focus { outline: none; border-color: var(--text-4); }
+
+  .read-root { max-width: 560px; margin: 0 auto; padding: calc(28px + var(--safe-top)) 18px calc(40px + var(--safe-bottom)); }
+  .read-head { text-align: center; margin-bottom: 18px; }
+  .read-logo { font-size: 24px; font-weight: 800; }
+  .read-tag { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+  .read-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 22px; box-shadow: var(--shadow); }
+  .read-title { font-size: 18px; font-weight: 800; }
+  .read-sub { font-size: 13px; color: var(--text-3); margin-top: 4px; margin-bottom: 6px; }
+  .read-scroll { max-height: 58vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 4px; }
+  .read-h { font-size: 13px; font-weight: 800; margin-top: 18px; margin-bottom: 6px; }
+  .read-p { font-size: 13.5px; color: var(--text-2); line-height: 1.85; }
+  .read-list { font-size: 13.5px; color: var(--text-2); line-height: 1.85; padding-left: 20px; }
+  .read-list li { margin-bottom: 6px; }
+  .read-list strong, .read-p strong { color: var(--text); font-weight: 700; }
+  .read-note { text-align: center; font-size: 11px; color: var(--text-4); margin-top: 16px; }
+
+  .form-root { max-width: 560px; margin: 0 auto; padding: calc(16px + var(--safe-top)) 16px calc(40px + var(--safe-bottom)); }
+  .form-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .form-title { font-size: 18px; font-weight: 800; }
+  .x-close { background: none; border: none; font-size: 15px; color: var(--text-3); cursor: pointer; padding: 6px 10px; }
+  .form-block { margin-bottom: 20px; }
+  .seg { display: flex; background: var(--accent-soft); border-radius: 10px; padding: 3px; gap: 3px; }
+  .seg button { flex: 1; border: none; background: none; border-radius: 8px; padding: 8px; font-size: 13px; font-weight: 600; color: var(--text-3); cursor: pointer; }
+  .seg button.active { background: #fff; color: var(--text); font-weight: 800; box-shadow: var(--shadow); }
+
+  .settings-label { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
+  .settings-desc { font-size: 12.5px; color: var(--text-3); line-height: 1.7; margin-bottom: 12px; }
+  .stat-row { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--border-light); font-size: 13px; }
+  .stat-row:first-of-type { border-top: none; }
+  .stat-row-label { color: var(--text-3); }
+  .stat-row-val { font-weight: 700; }
+  .dev-msg { font-size: 13px; color: var(--text-2); line-height: 1.8; }
+  .dev-links { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .dev-link { font-size: 13px; color: var(--accent-strong); text-decoration: none; border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; }
+  .donate-block { margin-top: 12px; }
+  .donate-label { font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
+  .eth-box { background: #fafafa; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 12px; font-family: ui-monospace, "SF Mono", Menlo, monospace; word-break: break-all; line-height: 1.6; color: var(--text-2); margin-bottom: 10px; }
+  .install-section { background: linear-gradient(135deg, #2a2a2e, #1a1a1a); border-radius: 16px; padding: 18px 20px; margin-bottom: 12px; color: #fff; }
+  .install-title { font-size: 14px; font-weight: 800; margin-bottom: 6px; }
+  .install-desc { font-size: 12.5px; color: rgba(255,255,255,0.75); line-height: 1.7; margin-bottom: 12px; }
+  .install-big-btn { width: 100%; background: #fff; color: #1a1a1a; border: none; border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .install-steps { display: flex; flex-direction: column; gap: 8px; }
+  .install-step { display: flex; gap: 10px; align-items: flex-start; }
+  .install-step-num { width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.18); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .install-step-text { font-size: 12.5px; color: rgba(255,255,255,0.85); line-height: 1.6; }
+  .install-step-text strong { color: #fff; }
+  .app-foot { text-align: center; margin-top: 22px; color: var(--text-4); font-size: 11px; line-height: 1.9; }
+  .empty { text-align: center; color: var(--text-3); font-size: 13px; padding: 30px 10px; line-height: 1.9; }
+
+  .toast { position: fixed; left: 50%; bottom: calc(26px + var(--safe-bottom)); transform: translateX(-50%) translateY(20px); background: #1a1a1a; color: #fff; font-size: 13px; padding: 11px 20px; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; z-index: 90; box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+
+const STORAGE_KEY = 'ember_v1';
+const APP_VERSION = '1.0.0';
+const VERSION_KEY = 'ember_version';
+const TERMS_VERSION = 1;
+
+const WHATS_NEW = [
+  "Ember をリリースしました。責めずに、ただ把握する。吸った一本を記録して、自分のパターンに気づく時間に。",
+];
+const DEV_INFO = {
+  name: "田中志（たなかしるす）",
+  message: "やめさせるのではなく、ただ寄りそって記録する道具をつくっています。要望や不具合があれば教えてください。",
+  links: [{ label: "X（Twitter）", url: "https://x.com/Sirusu_Tanaka" }],
+};
+const DONATIONS = [
+  { key: "btc", label: "ビットコイン（BTC）", address: "1EHshWSHyvJFjkAYQ5rPX7nKo2FRKWF58f" },
+  { key: "eth", label: "イーサリアム（ETH）", address: "0xb7da6af09c0f8db95d0c0e352e32d1915483931e" },
+];
+const TRIGGERS = ['ストレス','食後','コーヒー','お酒','退屈','習慣','気分転換','集中','つきあい','その他'];
+const BANDS = [['朝', 5, 11], ['昼', 11, 17], ['夕', 17, 22], ['夜', 22, 29]]; // 夜=22:00〜翌5:00
+const SATS = [['high','😌 満足'], ['mid','🙂 ふつう'], ['low','😔 惰性']];
+function satEmoji(v) { return v === 'high' ? '😌' : v === 'mid' ? '🙂' : v === 'low' ? '😔' : ''; }
+function satLabel(v) { return v === 'high' ? '満足' : v === 'mid' ? 'ふつう' : v === 'low' ? '惰性' : ''; }
+
+let state = {
+  agreedTermsVersion: 0,
+  cigs: [],   // { id, ts, trigger, sat, memo }
+  stock: 0,   // 在庫（本数）
+  settings: { pricePerPack: 600, cigsPerPack: 20, dailyTarget: 0, weekStart: 'mon', trackStock: false },
+};
+
+let currentTab    = 'log';
+let showTermsView = false;
+let showHelpView  = false;
+let updateInfo    = null;
+let formView      = null;     // 'edit' | 'add' | null
+let editingCigId  = null;
+let cigDraft      = null;
+let tagCigId      = null;      // 直前に記録した1本に「きっかけ」を付けるバー用
+let sinceInterval = null;
+
+// ── Persistence ─────────────────────────────────────────────────────────────
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (s && typeof s === 'object') {
+      state = Object.assign({}, state, s);
+      state.settings = Object.assign({ pricePerPack: 600, cigsPerPack: 20, dailyTarget: 0, weekStart: 'mon', trackStock: false }, s.settings || {});
+      if (!Array.isArray(state.cigs)) state.cigs = [];
+      if (typeof state.stock !== 'number') state.stock = 0;
+    }
+  } catch {}
+}
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch { showToast('保存できませんでした'); }
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────
+function randomId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function showToast(msg) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(showToast._t); showToast._t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+function dateStr(d) { return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function todayStr() { return dateStr(new Date()); }
+function dayKeyOf(ts) { return dateStr(new Date(ts)); }
+function startOfWeek() {
+  const d = new Date(); d.setHours(0,0,0,0);
+  const ws = state.settings.weekStart === 'sun' ? 0 : 1;
+  let diff = d.getDay() - ws; if (diff < 0) diff += 7;
+  d.setDate(d.getDate() - diff); return d;
+}
+
+function cigsToday() { const t = todayStr(); return state.cigs.filter(c => dayKeyOf(c.ts) === t); }
+function countOnDay(ds) { return state.cigs.reduce((a, c) => a + (dayKeyOf(c.ts) === ds ? 1 : 0), 0); }
+function countThisWeek() { const w = startOfWeek().getTime(); return state.cigs.reduce((a, c) => a + (c.ts >= w ? 1 : 0), 0); }
+function countThisMonth() { const d = new Date(); const m = d.getMonth(), y = d.getFullYear(); return state.cigs.reduce((a, c) => { const cd = new Date(c.ts); return a + (cd.getMonth() === m && cd.getFullYear() === y ? 1 : 0); }, 0); }
+function lastCigTs() { let m = null; for (const c of state.cigs) if (m === null || c.ts > m) m = c.ts; return m; }
+function cost(count) { const s = state.settings; if (!s.cigsPerPack) return 0; return Math.round(count / s.cigsPerPack * s.pricePerPack); }
+function yen(n) { return '¥' + n.toLocaleString('ja-JP'); }
+function avgDaily30() { const t = Date.now() - 30 * 86400000; return state.cigs.filter(c => c.ts >= t).length / 30; }
+
+function sinceText(ts) {
+  if (ts === null) return '—';
+  const min = Math.floor((Date.now() - ts) / 60000);
+  if (min < 1) return 'たった今';
+  const h = Math.floor(min / 60), m = min % 60;
+  if (h < 24) return (h ? h + '時間' : '') + (m || !h ? m + '分' : '');
+  const days = Math.floor(h / 24); return days + '日' + (h % 24) + '時間';
+}
+function isInStandaloneMode() { return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true; }
+function isIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+
+// ── Version ───────────────────────────────────────────────────────────────
+function checkVersion() {
+  let prev = null; try { prev = localStorage.getItem(VERSION_KEY); } catch {}
+  if (prev && prev !== APP_VERSION) updateInfo = { from: prev, to: APP_VERSION };
+  if (!updateInfo) { try { localStorage.setItem(VERSION_KEY, APP_VERSION); } catch {} }
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  const app = document.getElementById('app');
+  stopSinceInterval();
+  if ((state.agreedTermsVersion || 0) < TERMS_VERSION) { app.innerHTML = renderTerms(false); return; }
+  if (showTermsView) { app.innerHTML = renderTerms(true); return; }
+  if (showHelpView)  { app.innerHTML = renderHelp(); return; }
+  if (updateInfo)    { app.innerHTML = renderUpdateScreen(); return; }
+  if (formView)      { app.innerHTML = renderCigForm(); return; }
+  app.innerHTML = renderShell(renderTab());
+  if (currentTab === 'log') startSinceInterval();
+}
+function renderShell(content) {
+  const tabs = [['log','記録'],['history','きろく'],['insight','ふりかえり'],['settings','設定']];
+  return '<nav class="nav"><div class="nav-bar"><span class="nav-title">Ember</span></div><div class="nav-tabs">'
+    + tabs.map(function(t) { return '<button class="nav-tab' + (currentTab === t[0] ? ' active' : '') + '" onclick="switchTab(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('')
+    + '</div></nav><div class="main" id="tab-content">' + content + '</div>';
+}
+function renderTab() {
+  if (currentTab === 'history') return renderHistory();
+  if (currentTab === 'insight') return renderInsight();
+  if (currentTab === 'settings') return renderSettings();
+  return renderLog();
+}
+function switchTab(tab) { currentTab = tab; tagCigId = null; render(); }
+function refreshTab() { const c = document.getElementById('tab-content'); if (c) c.innerHTML = renderTab(); }
+
+// ── LOG ──────────────────────────────────────────────────────────────────────
+function renderLog() {
+  const today = countOnDay(todayStr());
+  const last = lastCigTs();
+  const target = state.settings.dailyTarget;
+  const targetTxt = target > 0 ? '<span class="muted">／ 目安 ' + target + '本</span>' : '';
+
+  // 在庫カード（在庫管理ONのとき）
+  let stockCard = '';
+  if (state.settings.trackStock) {
+    const avg = avgDaily30();
+    const daysLeft = (avg > 0 && state.stock > 0) ? Math.floor(state.stock / avg) : null;
+    const low = state.stock <= 3;
+    stockCard = '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px">'
+      + '<div><div class="field-label" style="margin-bottom:2px">在庫</div>'
+      + '<div style="font-size:21px;font-weight:800">' + state.stock + '<span class="muted" style="font-size:13px;font-weight:600"> 本</span>'
+      + (daysLeft !== null ? ' <span class="muted" style="font-size:12px;font-weight:600">約' + daysLeft + '日分</span>' : '') + '</div></div>'
+      + '<button class="btn-secondary" style="white-space:nowrap" onclick="buyPack()">＋ 1箱 買い足し</button></div>'
+      + (low ? '<div style="margin-top:10px;font-size:12.5px;color:#b5503f">🔥 そろそろ買い足しどきかも</div>' : '')
+      + '<button class="btn-ghost" style="margin-top:10px" onclick="adjustStock()">在庫の数を直す</button></div>';
+  }
+
+  // 直前の1本に「きっかけ・満足度」を付けるバー
+  let tagBar = '';
+  if (tagCigId) {
+    const c = state.cigs.find(x => x.id === tagCigId) || {};
+    const trigChips = TRIGGERS.map(function(t) { return '<button class="chip' + (c.trigger === t ? ' active' : '') + '" onclick="tagCig(\'' + t + '\')">' + t + '</button>'; }).join('');
+    const satChips = SATS.map(function(st) { return '<button class="chip' + (c.sat === st[0] ? ' active' : '') + '" onclick="tagSat(\'' + st[0] + '\')">' + st[1] + '</button>'; }).join('');
+    tagBar = '<div class="card" style="border-color:#eadfce;background:#fffaf2">'
+      + '<div class="field-label" style="margin-bottom:10px">今の1本をメモ <span class="muted">（任意・あとからでもOK）</span></div>'
+      + '<div class="muted" style="margin-bottom:6px">きっかけ</div><div class="chips">' + trigChips + '</div>'
+      + '<div class="muted" style="margin:12px 0 6px">満足度</div><div class="chips">' + satChips + '</div>'
+      + '<div style="display:flex;gap:10px;margin-top:14px">'
+      + '<button class="btn-secondary" style="flex:1" onclick="closeTag()">閉じる</button>'
+      + '<button class="btn-ghost" style="color:#b5503f;border-color:#e3b7b0" onclick="undoLast()">取消</button>'
+      + '</div></div>';
+  }
+
+  const todays = cigsToday().slice().sort(function(a, b) { return b.ts - a.ts; }).slice(0, 6);
+  const recent = todays.length
+    ? '<div class="card"><div class="field-label" style="margin-bottom:10px">今日の記録</div>'
+      + todays.map(function(c) {
+          const d = new Date(c.ts);
+          return '<div class="cig-item" onclick="openCigForm(\'' + c.id + '\')"><div class="cig-dot"></div>'
+            + '<div class="cig-time">' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + '</div>'
+            + '<div class="cig-body"><div class="cig-trig">' + (c.sat ? satEmoji(c.sat) + ' ' : '') + escHtml(c.trigger || 'きっかけ未設定') + '</div>'
+            + (c.memo ? '<div class="cig-memo">' + escHtml(c.memo) + '</div>' : '') + '</div></div>';
+        }).join('')
+      + (countOnDay(todayStr()) > 6 ? '<div class="muted" style="text-align:center;margin-top:6px">…ほかは「きろく」タブで</div>' : '')
+      + '</div>'
+    : '';
+
+  return '<button class="log-big" onclick="logCig()"><span class="log-ember"></span>'
+    + '<div class="log-emoji">🚬</div><div class="log-big-title">1本 記録する</div>'
+    + '<div class="log-big-sub">タップした“今”の時刻で記録します</div></button>'
+    + '<div class="since"><div class="since-num" id="since-num">前回から ' + sinceText(last) + '</div>'
+    + '<div class="since-lab">' + (last ? '最後の1本：' + fmtClock(last) : 'まだ今日の記録はありません') + '</div></div>'
+    + stockCard
+    + tagBar
+    + '<div class="summary">'
+    + '<div class="sum-box"><div class="sum-label">今日</div><div class="sum-val">' + today + '<small> 本</small></div></div>'
+    + '<div class="sum-box"><div class="sum-label">今週</div><div class="sum-val">' + countThisWeek() + '<small> 本</small></div></div>'
+    + '<div class="sum-box"><div class="sum-label">今月</div><div class="sum-val">' + countThisMonth() + '<small> 本</small></div></div>'
+    + '</div>'
+    + (targetTxt ? '<div class="muted" style="text-align:center;margin:-4px 0 12px">今日 ' + today + ' 本 ' + targetTxt + '</div>' : '')
+    + recent
+    + '<button class="btn-secondary" style="width:100%" onclick="openCigForm()">＋ 時刻・メモを指定して記録</button>'
+    + '<div class="app-foot">Ember · 記録はこの端末の中だけに保存されます</div>';
+}
+function fmtClock(ts) { const d = new Date(ts); const t = todayStr(); const isToday = dayKeyOf(ts) === t; return (isToday ? '' : (d.getMonth()+1) + '/' + d.getDate() + ' ') + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function startSinceInterval() {
+  stopSinceInterval();
+  sinceInterval = setInterval(function() {
+    const el = document.getElementById('since-num');
+    if (el) el.textContent = '前回から ' + sinceText(lastCigTs());
+  }, 1000);
+}
+function stopSinceInterval() { if (sinceInterval) { clearInterval(sinceInterval); sinceInterval = null; } }
+
+function logCig() {
+  const c = { id: randomId(), ts: Date.now(), trigger: '', sat: '', memo: '' };
+  state.cigs.push(c);
+  if (state.settings.trackStock && state.stock > 0) state.stock--;
+  saveState();
+  tagCigId = c.id; render();
+  showToast(state.settings.trackStock ? '記録しました（残り ' + state.stock + ' 本）' : '記録しました');
+}
+function tagCig(trigger) {
+  const c = state.cigs.find(x => x.id === tagCigId);
+  if (c) { c.trigger = (c.trigger === trigger ? '' : trigger); saveState(); }
+  render();
+}
+function tagSat(sat) {
+  const c = state.cigs.find(x => x.id === tagCigId);
+  if (c) { c.sat = (c.sat === sat ? '' : sat); saveState(); }
+  render();
+}
+function closeTag() { tagCigId = null; render(); }
+function undoLast() {
+  if (!tagCigId) return;
+  const existed = state.cigs.some(c => c.id === tagCigId);
+  state.cigs = state.cigs.filter(c => c.id !== tagCigId);
+  if (existed && state.settings.trackStock) state.stock++;
+  tagCigId = null; saveState(); render();
+  showToast('取り消しました');
+}
+
+// 在庫
+function buyPack() {
+  state.stock += (state.settings.cigsPerPack || 20);
+  saveState(); render();
+  showToast('1箱（' + (state.settings.cigsPerPack || 20) + '本）追加しました');
+}
+function adjustStock() {
+  const v = prompt('今ある本数を入力してください', String(state.stock));
+  if (v === null) return;
+  let n = parseInt(v, 10); if (isNaN(n) || n < 0) n = 0;
+  state.stock = n; saveState(); render();
+  showToast('在庫を ' + n + ' 本にしました');
+}
+
+// ── Cig form (add / edit) ──────────────────────────────────────────────────
+function openCigForm(id) {
+  editingCigId = id || null;
+  if (id) {
+    const c = state.cigs.find(x => x.id === id);
+    cigDraft = c ? { ts: c.ts, trigger: c.trigger || '', sat: c.sat || '', memo: c.memo || '' } : null;
+  } else {
+    cigDraft = { ts: Date.now(), trigger: '', sat: '', memo: '' };
+  }
+  if (!cigDraft) return;
+  formView = id ? 'edit' : 'add'; tagCigId = null; render();
+}
+function closeForm() { formView = null; editingCigId = null; render(); }
+function tsToInput(ts) { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function renderCigForm() {
+  const chips = TRIGGERS.map(function(t) { return '<button class="chip' + (cigDraft.trigger === t ? ' active' : '') + '" onclick="cigPickTrigger(\'' + t + '\')">' + t + '</button>'; }).join('');
+  const satChips = SATS.map(function(st) { return '<button class="chip' + (cigDraft.sat === st[0] ? ' active' : '') + '" onclick="cigPickSat(\'' + st[0] + '\')">' + st[1] + '</button>'; }).join('');
+  return '<div class="form-root"><div class="form-top"><div class="form-title">' + (editingCigId ? '記録を編集' : '記録を追加') + '</div>'
+    + '<button class="x-close" onclick="closeForm()">✕ 閉じる</button></div>'
+    + '<div class="form-block"><div class="field-label">日時</div><input type="datetime-local" id="cig-dt" value="' + tsToInput(cigDraft.ts) + '" onchange="cigSetTime(this.value)" /></div>'
+    + '<div class="form-block"><div class="field-label">きっかけ（任意）</div><div class="chips">' + chips + '</div></div>'
+    + '<div class="form-block"><div class="field-label">満足度（任意）</div><div class="chips">' + satChips + '</div></div>'
+    + '<div class="form-block"><div class="field-label">メモ（任意）</div><textarea id="cig-memo" maxlength="200" placeholder="場所、その時の気分、銘柄など" oninput="cigDraft.memo=this.value">' + escHtml(cigDraft.memo) + '</textarea></div>'
+    + '<button class="btn-primary" onclick="saveCig()">' + (editingCigId ? '保存する' : '記録する') + '</button>'
+    + (editingCigId ? '<button class="btn-danger" style="margin-top:10px" onclick="deleteCig()">この記録を削除</button>' : '')
+    + '</div>';
+}
+function cigPickTrigger(t) { cigDraft.trigger = (cigDraft.trigger === t ? '' : t); const memoEl = document.getElementById('cig-memo'); if (memoEl) cigDraft.memo = memoEl.value; document.getElementById('app').innerHTML = renderCigForm(); }
+function cigPickSat(s) { cigDraft.sat = (cigDraft.sat === s ? '' : s); const memoEl = document.getElementById('cig-memo'); if (memoEl) cigDraft.memo = memoEl.value; document.getElementById('app').innerHTML = renderCigForm(); }
+function cigSetTime(v) { const ts = new Date(v).getTime(); if (!isNaN(ts)) cigDraft.ts = ts; }
+function saveCig() {
+  const memoEl = document.getElementById('cig-memo'); if (memoEl) cigDraft.memo = memoEl.value;
+  if (editingCigId) {
+    const c = state.cigs.find(x => x.id === editingCigId);
+    if (c) { c.ts = cigDraft.ts; c.trigger = cigDraft.trigger; c.sat = cigDraft.sat; c.memo = cigDraft.memo.trim(); }
+  } else {
+    state.cigs.push({ id: randomId(), ts: cigDraft.ts, trigger: cigDraft.trigger, sat: cigDraft.sat, memo: cigDraft.memo.trim() });
+    if (state.settings.trackStock && state.stock > 0) state.stock--;
+  }
+  saveState(); formView = null; editingCigId = null; currentTab = 'log'; render();
+  showToast('保存しました');
+}
+function deleteCig() {
+  if (!editingCigId || !confirm('この記録を削除しますか？')) return;
+  state.cigs = state.cigs.filter(c => c.id !== editingCigId);
+  saveState(); formView = null; editingCigId = null; render();
+  showToast('削除しました');
+}
+
+// ── HISTORY ────────────────────────────────────────────────────────────────────
+function renderHistory() {
+  if (!state.cigs.length) return '<div class="section-title" style="margin-bottom:6px">きろく</div><div class="empty">まだ記録がありません。<br>「記録」タブの大きなボタンから、吸った1本を記録できます。</div>';
+  const byDay = {};
+  state.cigs.forEach(function(c) { const k = dayKeyOf(c.ts); (byDay[k] = byDay[k] || []).push(c); });
+  const days = Object.keys(byDay).sort().reverse();
+  const blocks = days.map(function(ds) {
+    const items = byDay[ds].slice().sort(function(a, b) { return b.ts - a.ts; });
+    const rows = items.map(function(c) {
+      const d = new Date(c.ts);
+      return '<div class="cig-item" onclick="openCigForm(\'' + c.id + '\')"><div class="cig-dot"></div>'
+        + '<div class="cig-time">' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + '</div>'
+        + '<div class="cig-body"><div class="cig-trig">' + (c.sat ? satEmoji(c.sat) + ' ' : '') + escHtml(c.trigger || 'きっかけ未設定') + '</div>'
+        + (c.memo ? '<div class="cig-memo">' + escHtml(c.memo) + '</div>' : '') + '</div></div>';
+    }).join('');
+    return '<div class="day-head"><span>' + fmtDayLabel(ds) + '</span><span>' + items.length + ' 本</span></div>' + rows;
+  }).join('');
+  return '<div style="display:flex;align-items:baseline;justify-content:space-between"><div class="section-title">きろく</div>'
+    + '<div class="muted">合計 ' + state.cigs.length + ' 本</div></div>' + blocks;
+}
+function fmtDayLabel(ds) {
+  const p = ds.split('-'); const d = new Date(+p[0], +p[1]-1, +p[2]);
+  const w = ['日','月','火','水','木','金','土'][d.getDay()];
+  const t = todayStr(); let prefix = '';
+  if (ds === t) prefix = '今日・';
+  else { const yd = new Date(); yd.setDate(yd.getDate()-1); if (ds === dateStr(yd)) prefix = '昨日・'; }
+  return prefix + (d.getMonth()+1) + '月' + d.getDate() + '日（' + w + '）';
+}
+
+// ── INSIGHT ────────────────────────────────────────────────────────────────────
+function renderInsight() {
+  if (!state.cigs.length) return '<div class="section-title" style="margin-bottom:6px">ふりかえり</div><div class="empty">記録がたまると、ここに本数の推移や、きっかけ・時間帯の傾向が出ます。</div>';
+
+  // 直近14日の本数
+  const days = [];
+  for (let i = 13; i >= 0; i--) { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - i); days.push(dateStr(d)); }
+  const counts = days.map(countOnDay);
+  const cmax = Math.max.apply(null, counts.concat([1]));
+  const chart = '<div class="chart">' + days.map(function(ds, i) {
+    const c = counts[i]; const h = (c / cmax * 100);
+    const isToday = ds === todayStr();
+    const lbl = ds.split('-');
+    return '<div class="chart-col">' + (c > 0 ? '<div class="chart-num">' + c + '</div>' : '')
+      + '<div class="chart-bar' + (isToday ? ' today' : '') + '" style="height:' + h.toFixed(0) + '%"></div>'
+      + '<div class="chart-lab">' + (+lbl[2]) + '</div></div>';
+  }).join('') + '</div>';
+
+  // 直近30日：きっかけ／時間帯
+  const since30 = Date.now() - 30 * 86400000;
+  const recent = state.cigs.filter(c => c.ts >= since30);
+  const trigMap = {}; TRIGGERS.forEach(t => trigMap[t] = 0); let trigUnset = 0;
+  recent.forEach(function(c) { if (c.trigger && trigMap.hasOwnProperty(c.trigger)) trigMap[c.trigger]++; else if (c.trigger) trigMap[c.trigger] = (trigMap[c.trigger]||0)+1; else trigUnset++; });
+  const trigArr = Object.keys(trigMap).map(k => ({ k: k, v: trigMap[k] })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+  const tmax = Math.max.apply(null, trigArr.map(x => x.v).concat([1]));
+  const trigBars = trigArr.length ? trigArr.map(function(x) {
+    return '<div class="bar-row"><div class="bar-name">' + escHtml(x.k) + '</div>'
+      + '<div class="bar-track"><div class="bar-fill" style="width:' + (x.v / tmax * 100).toFixed(0) + '%"></div></div>'
+      + '<div class="bar-val">' + x.v + '本</div></div>';
+  }).join('') : '<div class="muted">きっかけの記録がまだありません。記録のときにタグを付けると傾向が見えます。</div>';
+
+  const bandCounts = BANDS.map(function(b) {
+    return recent.reduce(function(a, c) { const h = new Date(c.ts).getHours(); const hh = (h < 5 ? h + 24 : h); return a + (hh >= b[1] && hh < b[2] ? 1 : 0); }, 0);
+  });
+  const bmax = Math.max.apply(null, bandCounts.concat([1]));
+  const bandBars = BANDS.map(function(b, i) {
+    const v = bandCounts[i];
+    const range = b[0] === '朝' ? '5–11時' : b[0] === '昼' ? '11–17時' : b[0] === '夕' ? '17–22時' : '22–5時';
+    return '<div class="bar-row"><div class="bar-name">' + b[0] + '<span class="muted" style="font-size:10px"> ' + range + '</span></div>'
+      + '<div class="bar-track"><div class="bar-fill" style="width:' + (v / bmax * 100).toFixed(0) + '%"></div></div>'
+      + '<div class="bar-val">' + v + '本</div></div>';
+  }).join('');
+
+  // 平均・コスト
+  const firstTs = state.cigs.reduce((m, c) => Math.min(m, c.ts), Date.now());
+  const spanDays = Math.max(1, Math.ceil((Date.now() - firstTs) / 86400000));
+  const avg = (state.cigs.length / Math.min(spanDays, 30)); // 直近基準のざっくり平均
+  const avg30 = (recent.length / 30);
+
+  // 満足度の内訳（直近30日）
+  const satCount = { high: 0, mid: 0, low: 0 };
+  recent.forEach(function(c) { if (c.sat && satCount.hasOwnProperty(c.sat)) satCount[c.sat]++; });
+  const satTotal = satCount.high + satCount.mid + satCount.low;
+  const smax = Math.max(satCount.high, satCount.mid, satCount.low, 1);
+  const satBars = SATS.map(function(st) {
+    const v = satCount[st[0]];
+    return '<div class="bar-row"><div class="bar-name">' + st[1] + '</div>'
+      + '<div class="bar-track"><div class="bar-fill" style="width:' + (v / smax * 100).toFixed(0) + '%"></div></div>'
+      + '<div class="bar-val">' + v + '本</div></div>';
+  }).join('');
+  const satCard = satTotal
+    ? '<div class="card"><div class="field-label" style="margin-bottom:12px">満足度の内訳<span class="muted"> ・ 直近30日</span></div>' + satBars
+      + (satCount.low > 0 ? '<div class="muted" style="margin-top:8px">「惰性」の一本に気づけたら、それだけで十分です。</div>' : '') + '</div>'
+    : '';
+
+  return '<div class="section-title" style="margin-bottom:14px">ふりかえり</div>'
+    + '<div class="card"><div class="field-label">本数の推移<span class="muted"> ・ 直近14日</span></div>' + chart + '</div>'
+    + '<div class="card"><div class="field-label" style="margin-bottom:12px">きっかけの傾向<span class="muted"> ・ 直近30日</span></div>' + trigBars
+    + (trigUnset ? '<div class="muted" style="margin-top:8px">きっかけ未設定：' + trigUnset + '本</div>' : '') + '</div>'
+    + '<div class="card"><div class="field-label" style="margin-bottom:12px">時間帯の傾向<span class="muted"> ・ 直近30日</span></div>' + bandBars + '</div>'
+    + satCard
+    + '<div class="card"><div class="field-label">めやす</div>'
+    + '<div class="stat-row"><span class="stat-row-label">1日あたり（直近30日平均）</span><span class="stat-row-val">' + avg30.toFixed(1) + ' 本</span></div>'
+    + '<div class="stat-row"><span class="stat-row-label">今月の本数</span><span class="stat-row-val">' + countThisMonth() + ' 本</span></div>'
+    + '<div class="stat-row"><span class="stat-row-label">今月のコスト</span><span class="stat-row-val">' + yen(cost(countThisMonth())) + '</span></div>'
+    + '<div class="stat-row"><span class="stat-row-label">累計の本数</span><span class="stat-row-val">' + state.cigs.length + ' 本</span></div>'
+    + '<div class="stat-row"><span class="stat-row-label">累計のコスト</span><span class="stat-row-val">' + yen(cost(state.cigs.length)) + '</span></div>'
+    + '</div>'
+    + '<div class="app-foot">コストは「1箱の値段 ÷ 1箱の本数」で計算しています（設定で変更できます）</div>';
+}
+
+// ── TERMS ──────────────────────────────────────────────────────────────────────
+function renderTermsBody() {
+  return '<div class="read-h">このアプリについて</div>'
+    + '<p class="read-p">Ember（エンバー）は、吸った一本を記録して、自分の喫煙のパターンに気づくための道具です。やめることを急かしたり、責めたりはしません。<strong>ただ、ありのままを記録します。</strong></p>'
+    + '<div class="read-h">あなたのデータについて</div>'
+    + '<ul class="read-list">'
+    + '<li>記録した内容は、すべて<strong>この端末の中だけ</strong>に保存されます。</li>'
+    + '<li>外部のサーバーには送りません。広告も、追跡も、ログインもありません。</li>'
+    + '<li>アプリやブラウザのデータを消すと、記録も消えます。</li>'
+    + '</ul>'
+    + '<div class="read-h">使うときに</div>'
+    + '<ul class="read-list">'
+    + '<li>このアプリは<strong>医療の道具ではありません</strong>。健康のアドバイスや治療の代わりにはなりません。</li>'
+    + '<li>もし「減らしたい」「やめたい」と思ったときは、医療機関や禁煙外来など、専門のサポートも頼れます。でも、それを決めるのはあなたです。</li>'
+    + '<li>このアプリの利用によって生じたことについて、作者は責任を負えないことをご理解ください。</li>'
+    + '</ul>'
+    + '<div class="read-h">無料です</div>'
+    + '<p class="read-p">このアプリは無料で使えます。応援したい人だけ、設定画面から寄付ができます（任意です）。</p>';
+}
+function renderTerms(viewOnly) {
+  return '<div class="read-root"><div class="read-head"><div class="read-logo">Ember</div><div class="read-tag">はじめる前に読んでください</div></div>'
+    + '<div class="read-card"><div class="read-title">プライバシーと規約</div>'
+    + '<div class="read-sub">かんたんに言うと「データはこの端末の中だけ」「責めません」です。</div>'
+    + '<div class="read-scroll">' + renderTermsBody() + '</div>'
+    + (viewOnly ? '<button class="btn-primary" style="margin-top:16px" onclick="closeTerms()">閉じる</button>'
+                : '<button class="btn-primary" style="margin-top:16px" onclick="agreeTerms()">読みました・同意して始める</button>')
+    + '</div><div class="read-note">同意すると、この内容に納得したことになります</div></div>';
+}
+function agreeTerms() { state.agreedTermsVersion = TERMS_VERSION; saveState(); render(); }
+function viewTerms() { showTermsView = true; render(); }
+function closeTerms() { showTermsView = false; render(); }
+
+// ── HELP ───────────────────────────────────────────────────────────────────────
+function renderHelp() {
+  return '<div class="read-root"><div class="read-head"><div class="read-logo">Ember</div><div class="read-tag">使い方ガイド</div></div>'
+    + '<div class="read-card"><div class="read-title">Emberの使い方</div>'
+    + '<div class="read-sub">むずかしいことはありません。吸ったら、押すだけ。</div>'
+    + '<div class="read-scroll">'
+    + '<div class="read-h">🚬 1本記録する</div>'
+    + '<p class="read-p">「記録」タブの大きなボタンを押すと、その“今”の時刻で1本を記録します。押したあとに出る「きっかけは？」で、ストレス・食後・コーヒーなどのタグを付けられます（任意・スキップOK）。まちがえて押したら「取消」で消せます。</p>'
+    + '<div class="read-h">🕒 あとから／時刻を指定して記録</div>'
+    + '<p class="read-p">「＋ 時刻・メモを指定して記録」から、日時を変えて記録できます。記録をタップすれば、きっかけやメモの編集・削除もできます。</p>'
+    + '<div class="read-h">😌 満足度</div>'
+    + '<p class="read-p">記録するときに「満足／ふつう／惰性」を残せます。責めるためではなく、<strong>どの一本が自分にとって良かったか</strong>を知るためのものです。なんとなく吸った“惰性”の一本に気づけたら、それで十分。</p>'
+    + '<div class="read-h">📦 在庫の管理</div>'
+    + '<p class="read-p">「設定」で在庫管理をオンにすると、「あと何本・約何日分」が分かります。1本記録すると自動で減り、買ったら「＋1箱 買い足し」。少なくなるとお知らせするので、切らして困りません。</p>'
+    + '<div class="read-h">📊 ふりかえり</div>'
+    + '<p class="read-p">「ふりかえり」タブで、直近14日の本数の推移、きっかけ・時間帯・満足度の傾向、1日あたりの平均、コストが見られます。「いつ・なぜ吸っているか」を知る手がかりに。</p>'
+    + '<div class="read-h">💴 コストの設定</div>'
+    + '<p class="read-p">「設定」で1箱の値段と本数を入れると、コストの目安が出ます。1日の目安本数を決めることもできます（任意・責めるためのものではありません）。</p>'
+    + '<div class="read-h">🤍 大切にしていること</div>'
+    + '<p class="read-p">このアプリは、やめさせるための道具ではありません。数字に一喜一憂しすぎず、自分のペースを知る手がかりにしてください。減らしたい・やめたいと思ったときは、それもあなたのペースで。</p>'
+    + '</div><button class="btn-primary" style="margin-top:16px" onclick="closeHelp()">閉じる</button></div>'
+    + '<div class="read-note">いつでも設定から開けます</div></div>';
+}
+function openHelp() { showHelpView = true; render(); }
+function closeHelp() { showHelpView = false; render(); }
+
+// ── UPDATE ─────────────────────────────────────────────────────────────────────
+function renderUpdateScreen() {
+  return '<div class="read-root"><div class="read-head"><div class="read-logo">Ember</div><div class="read-tag">アップデートしました 🎉</div></div>'
+    + '<div class="read-card"><div class="read-title">新しくなりました</div>'
+    + '<div class="read-sub">' + (updateInfo.from ? 'バージョン ' + escHtml(updateInfo.from) + ' → ' + escHtml(updateInfo.to) : '最新版（' + escHtml(updateInfo.to) + '）になりました') + '</div>'
+    + '<div class="read-scroll"><div class="read-h">新しくなったところ</div><ul class="read-list">' + WHATS_NEW.map(function(x) { return '<li>' + escHtml(x) + '</li>'; }).join('') + '</ul></div>'
+    + '<button class="btn-primary" style="margin-top:16px" onclick="dismissUpdate()">続ける</button></div></div>';
+}
+function dismissUpdate() { try { localStorage.setItem(VERSION_KEY, APP_VERSION); } catch {} updateInfo = null; render(); }
+
+// ── SETTINGS ───────────────────────────────────────────────────────────────────
+function activeDonations() { return DONATIONS.filter(function(d) { return d.address && d.address.trim(); }); }
+function renderSettings() {
+  const standalone = isInStandaloneMode(); const ios = isIOS();
+  let installHtml = '';
+  if (!standalone) {
+    installHtml = '<div class="install-section"><div class="install-title">📲 ホーム画面に追加する</div><div class="install-desc">アプリのようにすぐ開けて、オフラインでも動きます。記録もすばやく。</div>';
+    if (ios) installHtml += '<div class="install-steps"><div class="install-step"><div class="install-step-num">1</div><div class="install-step-text">Safari下部の <strong>共有ボタン（□↑）</strong> をタップ</div></div><div class="install-step"><div class="install-step-num">2</div><div class="install-step-text"><strong>「ホーム画面に追加」</strong> を選択</div></div></div>';
+    else if (deferredPrompt) installHtml += '<button class="install-big-btn" onclick="triggerInstall()">ホーム画面に追加</button>';
+    else installHtml += '<div class="install-steps"><div class="install-step"><div class="install-step-num">1</div><div class="install-step-text">ブラウザのメニュー（⋮）から <strong>「ホーム画面に追加」</strong></div></div></div>';
+    installHtml += '</div>';
+  }
+  const s = state.settings;
+  return '<div class="section-title" style="margin-bottom:16px">設定</div>' + installHtml
+    + '<div class="card"><div class="settings-label">コストの計算</div><div class="settings-desc">ふりかえりに出るコストの目安に使います。</div>'
+    + '<div class="row"><div><div class="field-label">1箱の値段（円）</div><input type="number" min="0" step="10" value="' + s.pricePerPack + '" oninput="setNum(\'pricePerPack\', this.value)" /></div>'
+    + '<div><div class="field-label">1箱の本数</div><input type="number" min="1" step="1" value="' + s.cigsPerPack + '" oninput="setNum(\'cigsPerPack\', this.value)" /></div></div></div>'
+    + '<div class="card"><div class="settings-label">在庫の管理（任意）</div><div class="settings-desc">「あと何本あるか」を管理できます。1本記録すると自動で1本減り、少なくなるとお知らせします。</div>'
+    + '<div class="seg"><button class="' + (s.trackStock?'active':'') + '" onclick="setTrackStock(true)">使う</button><button class="' + (!s.trackStock?'active':'') + '" onclick="setTrackStock(false)">使わない</button></div>'
+    + (s.trackStock ? '<div style="margin-top:12px"><div class="field-label">今ある本数</div><input type="number" min="0" step="1" value="' + state.stock + '" oninput="setStockNum(this.value)" style="width:120px" /> <span class="muted">本</span></div>' : '') + '</div>'
+    + '<div class="card"><div class="settings-label">1日の目安本数（任意）</div><div class="settings-desc">決めると「記録」画面に小さく表示されます。0でなし。責めるためのものではありません。</div>'
+    + '<input type="number" min="0" step="1" value="' + s.dailyTarget + '" oninput="setNum(\'dailyTarget\', this.value)" style="width:120px" /> <span class="muted">本 / 日</span></div>'
+    + '<div class="card"><div class="settings-label">週のはじまり</div>'
+    + '<div class="seg"><button class="' + (s.weekStart==='mon'?'active':'') + '" onclick="setWeekStart(\'mon\')">月曜から</button><button class="' + (s.weekStart==='sun'?'active':'') + '" onclick="setWeekStart(\'sun\')">日曜から</button></div></div>'
+    + '<div class="card"><div class="settings-label">記録のようす</div>'
+    + '<div class="stat-row"><span class="stat-row-label">記録した本数</span><span class="stat-row-val">' + state.cigs.length + ' 本</span></div>'
+    + '<div class="stat-row"><span class="stat-row-label">今月のコスト</span><span class="stat-row-val">' + yen(cost(countThisMonth())) + '</span></div></div>'
+    + '<div class="card"><div class="settings-label">使い方</div><div class="settings-desc">記録のしかたや、ふりかえりの見方を見られます。</div><button class="btn-secondary" style="width:100%" onclick="openHelp()">使い方を見る</button></div>'
+    + '<div class="card"><div class="settings-label">プライバシーと規約</div><div class="settings-desc">最初に表示した内容をもう一度読めます。</div><button class="btn-secondary" style="width:100%" onclick="viewTerms()">プライバシーと規約を読む</button></div>'
+    + '<div class="card"><div class="settings-label">開発者情報</div><div class="dev-msg">' + escHtml(DEV_INFO.name) + '<br>' + escHtml(DEV_INFO.message) + '</div>'
+    + (DEV_INFO.links && DEV_INFO.links.length ? '<div class="dev-links">' + DEV_INFO.links.map(function(l) { return '<a class="dev-link" href="' + escHtml(l.url) + '" target="_blank" rel="noopener noreferrer">🔗 ' + escHtml(l.label) + '</a>'; }).join('') + '</div>' : '') + '</div>'
+    + '<div class="card"><div class="settings-label">開発者に寄付する</div>'
+    + (activeDonations().length
+        ? '<div class="settings-desc">よかったら暗号資産で応援できます。寄付は任意です。</div>'
+          + activeDonations().map(function(d) { return '<div class="donate-block"><div class="donate-label">' + escHtml(d.label) + '</div><div class="eth-box">' + escHtml(d.address) + '</div><button class="btn-secondary" style="width:100%" onclick="copyAddress(\'' + escHtml(d.address) + '\')">アドレスをコピー</button></div>'; }).join('')
+          + '<div class="settings-desc" style="margin-top:12px;margin-bottom:0;font-size:11.5px;color:var(--text-4)">⚠️ 送る前にアドレスを必ず確認してください。送金は取り消せません。</div>'
+        : '<div class="settings-desc" style="margin-bottom:0">寄付先はまだ設定されていません。</div>') + '</div>'
+    + '<div class="card"><div class="settings-label">アプリの更新</div><div class="settings-desc">いまのバージョンは v' + escHtml(APP_VERSION) + ' です（記録は消えません）。</div><button class="btn-primary" onclick="forceUpdate()">最新の状態にして再読み込み</button></div>'
+    + '<div class="card"><div class="settings-label">危険な操作</div><div class="settings-desc">すべての記録を消します。取り消せません。</div><button class="btn-danger" onclick="resetApp()">すべてのデータをリセット</button></div>'
+    + '<div class="app-foot">Ember v' + escHtml(APP_VERSION) + '<br>責めない喫煙記録<br>© 田中志</div>';
+}
+function setNum(key, val) {
+  let n = parseInt(val, 10); if (isNaN(n) || n < 0) n = 0;
+  if (key === 'cigsPerPack' && n < 1) n = 1;
+  state.settings[key] = n; saveState();
+}
+function setWeekStart(v) { state.settings.weekStart = v; saveState(); refreshTab(); }
+function setTrackStock(v) { state.settings.trackStock = v; saveState(); refreshTab(); }
+function setStockNum(val) { let n = parseInt(val, 10); if (isNaN(n) || n < 0) n = 0; state.stock = n; saveState(); }
+function copyAddress(text) {
+  const done = function() { showToast('アドレスをコピーしました'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(function() { fallbackCopy(text, done); });
+  else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  try { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }
+  catch { showToast('コピーできませんでした'); }
+}
+function resetApp() {
+  if (!confirm('すべての記録を削除します。元に戻せません。よろしいですか？')) return;
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  state = { agreedTermsVersion: TERMS_VERSION, cigs: [], settings: { pricePerPack: 600, cigsPerPack: 20, dailyTarget: 0, weekStart: 'mon' } };
+  saveState(); currentTab = 'log'; formView = null; render(); showToast('リセットしました');
+}
+
+// ── PWA ────────────────────────────────────────────────────────────────────────
+let deferredPrompt = null;
+async function triggerInstall() {
+  if (deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch {} deferredPrompt = null; if (currentTab === 'settings') refreshTab(); return; }
+  showToast(isIOS() ? 'Safariの共有ボタンから「ホーム画面に追加」を選んでください' : 'ブラウザのメニューから「ホーム画面に追加」を選んでください');
+}
+async function forceUpdate() {
+  try {
+    if ('serviceWorker' in navigator) { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(function(r) { return r.unregister(); })); }
+    if (window.caches && caches.keys) { const keys = await caches.keys(); await Promise.all(keys.map(function(k) { return caches.delete(k); })); }
+  } catch {}
+  window.location.reload();
+}
+window.addEventListener('beforeinstallprompt', function(e) { e.preventDefault(); deferredPrompt = e; if (currentTab === 'settings') refreshTab(); });
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+loadState();
+checkVersion();
+render();
+
+// ── Service Worker ───────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  var hadController = !!navigator.serviceWorker.controller;
+  var reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function() { if (!hadController || reloading) return; reloading = true; window.location.reload(); });
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js').then(function(reg) {
+      reg.update().catch(function() {});
+      reg.addEventListener('updatefound', function() {
+        var nw = reg.installing; if (!nw) return;
+        nw.addEventListener('statechange', function() { if (nw.state === 'installed' && navigator.serviceWorker.controller) nw.postMessage({ type: 'SKIP_WAITING' }); });
+      });
+    }).catch(function() {});
+  });
+}
+</script>
+</body>
+</html>
